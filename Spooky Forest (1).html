@@ -1,0 +1,1066 @@
+<!-- This HTML file is written for academic purposes -->
+<!-- Author: Dr. Bradford A. Towle Jr. -->
+<!-- Date: 5/26/2022 -->
+<HTML lang="en">
+	<HEAD>
+		<META CHARSET="UTF-8">
+		<TITLE>Spooky Forest</TITLE>	
+		<link rel="stylesheet" href="CanvasCSS.css">
+
+<script id="2dVertexShader" type="notjs">
+attribute vec4 a_position;	
+		//We now want to read in Colors
+		attribute vec3 a_color;
+		//However, we want to send the color to
+		//The fragment Shader
+		varying vec3 fragColor;
+				
+		uniform vec3 transform;
+		uniform vec3 rotation;		
+		
+		uniform vec3 worldLoc;
+		uniform vec3 worldRotation;
+		uniform float n;
+		uniform float f;
+		uniform float r;
+		uniform float t;
+		
+		//Lighting
+		varying vec3 fakenormal;
+		varying vec3 v_surfaceToLight;
+		varying vec3 v_surfaceToLight2;
+		varying vec3 v_surfaceToLight3;
+		varying vec3 v_surfaceToLight4;
+		varying vec3 v_surfaceToLight5;
+		varying vec3 v_surfaceToLight6;
+
+
+		varying vec3 v_surfaceToView;
+		varying vec3 v_spot_surfaceToLight;
+		
+		// in spotlight render function, set this to the position of the spotlight and use this instead of the hardcoded value
+		uniform vec3 spotLightPosition;
+vec4 MoveCamera(vec4 pos)
+		{
+			vec3 cw = cos(worldRotation);
+			vec3 sw = sin(worldRotation);
+			mat4 translateView = mat4(1.0,0.0,0.0,0.0,
+									  0.0,1.0,0.0,0.0,
+									  0.0,0.0,1.0,0.0,
+									  -1.0*worldLoc.x,-1.0*worldLoc.y,worldLoc.z,1.0
+									);
+						
+			mat4 rotateView = mat4(cw.y,0.0,-1.0*sw.y,0.0,
+									0.0,1.0,0.0,0.0,
+									sw.y,0.0,cw.y,0.0,
+									0.0,0.0,0.0,1.0);
+			return rotateView*translateView*pos;
+		}
+		
+		vec4 ApplyProjection(vec4 pos)
+		{
+			mat4 SimpleOrtho = mat4  (1,0.0,0.0,0.0,
+							 0.0,1,0.0,0.0, 
+							 0.0,0.0,1,0.0, 
+							 0.0,0.0,0.0,1.0);
+
+			mat4 ComplexPerspective = mat4(
+										n/r, 0.0,0.0,0.0,
+										0.0, n/t,0.0,0.0,
+										0.0,0.0,-1.0*(f+n)/(f-n),-1.0,
+										0.0,0.0,-2.0*f*n/(f-n),0.0
+										);
+			mat4 ComplexOrtho = mat4(	1.0/r,0.0,0.0,0.0,
+										0.0,1.0/t,0.0,0.0,	//If I make the y -1.0/t I will invert the Y-axis.
+										0.0,0.0,1.0,0.0,
+										0.0,0.0,0.0,1.0	//If I make the x and y translate -1, -1 I can put 0,0 in the bottom right.
+									);
+									
+			mat4 SimplePerspective = 	mat4(
+								1.0,0.0,0.0,0.0,
+								0.0,1.0,0.0,0.0,
+								0.0,0.0,-1.0,-1.0,
+								0.0,0.0,-2.0,0.0			
+								);
+			return ComplexPerspective*pos;
+		}
+		
+		vec4 PositionObject(vec4 pos)
+		{
+			mat4 translateM = mat4(1.0,0.0,0.0,0.0,
+						   0.0,1.0,0.0,0.0,
+						   0.0,0.0,1.0,0.0,
+						   transform.x,transform.y,transform.z,1.0);
+			return translateM*pos;	
+		}
+		//Use a function to Rotate the object
+		vec4 RotateObject(vec4 pos)
+		{
+			//This is a nice trick
+			vec3 c = cos(rotation);
+			vec3 s = sin(rotation);
+			fragColor = a_color;
+			//Surprise!  we have to go column firt when we enter the matrix.
+
+			mat4 rotateX = mat4(
+						1.0,	0.0,		0.0,		0.0,
+						0.0,	c.x,		s.x,		0.0,
+						0.0,	-1.0*s.x, 	c.x,		0.0,
+						0.0,	0.0,		0.0,		1.0
+						);
+	mat4 rotateY = mat4(c.y,0.0,-1.0*s.y,0.0,
+						0.0,1.0,0.0,0.0,
+						s.y,0.0,c.y,0.0,
+						0.0,0.0,0.0,1.0);
+	mat4 rotateZ = mat4(
+						c.z,		s.z,		0.0,	0.0,
+						-1.0*s.z, 	c.z,		0.0,	0.0,
+						0.0,		0.0,		1.0,	0.0,
+						0.0,		0.0,		0.0,	1.0
+						);
+			return rotateY*pos;
+		}
+		void main()
+		{
+			if(length(a_position)<5.0)
+			{
+				fakenormal = RotateObject(a_position).xyz;
+			}
+			else
+			{
+				fakenormal = vec3(0,1,0);
+			}
+			vec4 worldSpace = PositionObject(RotateObject(a_position));
+			
+			// Lighting stuff
+						v_surfaceToLight = vec3(-4.5,0,-3) - worldSpace.xyz;
+									v_surfaceToLight2 = vec3(-7.5,0,-6) - worldSpace.xyz;
+			v_surfaceToLight3 = vec3(-4.5,0,-9) - worldSpace.xyz;
+			v_surfaceToLight4 = vec3(-4.5,0,3) - worldSpace.xyz;
+			v_surfaceToLight5 = vec3(-7.5,0,6) - worldSpace.xyz;
+			v_surfaceToLight6 = vec3(-4.5,0,9) - worldSpace.xyz;		
+			v_surfaceToView = worldLoc - worldSpace.xyz;
+			
+			// replace vec3 with the uniform above (spotLightPosition)
+			v_spot_surfaceToLight = vec3(spotLightPosition) - worldSpace.xyz;
+			
+			fragColor = a_color;
+			vec4 cameraSpace = MoveCamera(worldSpace);
+			
+			gl_Position=ApplyProjection(cameraSpace);
+		}		
+		</SCRIPT>
+		<script id="2dFragmentShader" type="notjs">
+		//Fragment shaders do not have precision so we have to set it.
+		precision mediump float;
+		varying vec3 fragColor;
+		
+		// lighting 
+		varying vec3 fakenormal;
+		varying vec3 v_surfaceToLight;
+		varying vec3 v_surfaceToLight2;
+		varying vec3 v_surfaceToLight3;
+		varying vec3 v_surfaceToLight4;
+		varying vec3 v_surfaceToLight5;
+		varying vec3 v_surfaceToLight6;
+		varying vec3 v_surfaceToView;
+		varying vec3 v_spot_surfaceToLight;
+		
+		void main()
+		{
+			float ambient = .10;
+			// ambient daylight (directional light)
+			float d_light = dot(normalize(fakenormal),normalize(vec3(20,5,20)));
+			if (d_light < 0.0)
+			{
+				d_light = 0.0;
+			}
+			d_light*=0.25;
+			// point light (directional light but influenced by position in the world)
+			float p_light = dot(normalize(fakenormal),normalize(v_surfaceToLight)) * .25/length(v_surfaceToLight);
+			float p_light2 = dot(normalize(fakenormal),normalize(v_surfaceToLight2)) * .25/length(v_surfaceToLight2);
+			float p_light3 = dot(normalize(fakenormal),normalize(v_surfaceToLight3)) * .25/length(v_surfaceToLight3);
+			float p_light4 = dot(normalize(fakenormal),normalize(v_surfaceToLight4)) * .25/length(v_surfaceToLight4);
+			float p_light5 = dot(normalize(fakenormal),normalize(v_surfaceToLight5)) * .25/length(v_surfaceToLight5);
+			float p_light6 = dot(normalize(fakenormal),normalize(v_surfaceToLight6)) * .25/length(v_surfaceToLight6);
+			if (p_light < 0.0)
+			{
+				p_light = 0.0;
+			}
+			if (p_light2 < 0.0)
+			{
+				p_light2 = 0.0;
+			}
+			if (p_light3 < 0.0)
+			{
+				p_light3 = 0.0;
+			}
+			if (p_light4 < 0.0)
+			{
+				p_light4 = 0.0;
+			}
+			if (p_light5 < 0.0)
+			{
+				p_light5 = 0.0;
+			}
+			if (p_light5 < 0.0)
+			{
+				p_light6 = 0.0;
+			}
+			float spot_light_power = 0.0;
+			float spot_light = dot(normalize(v_spot_surfaceToLight),vec3(0,3,0));
+			if (spot_light >= 0.98)
+			{
+				spot_light_power = dot(normalize(fakenormal),normalize(v_spot_surfaceToLight));
+				if (spot_light_power < 0.0)
+				{
+					spot_light_power = 0.0;
+				}
+			}
+			
+			/* attempt at specularity
+			vec3 halfVector = normalize(normalize(v_surfaceToView) + normalize(v_surfaceToLight));
+			// halfVector.z = -1.0*halfVector.z;
+			float specularityP = 0.0;
+			if(p_light>0.2)
+			{
+				specularityP = pow(dot(normalize(fakenormal),halfVector),0.01);
+				if(specularityP < 0.0)
+				{
+					specularityP = 0.0;
+				}
+			}
+			*/
+			
+			gl_FragColor = vec4(fragColor*(ambient+d_light+p_light+p_light2+p_light3+p_light4+p_light5+p_light6+spot_light_power),1);
+		}
+		</script>
+
+
+<SCRIPT>
+class InitWebGLProgram
+{
+constructor()
+{
+	gl.viewport(0,0, gl.canvas.width, gl.canvas.height);
+	gl.clearColor(0,0,0,1);
+	gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.enable(gl.DEPTH_TEST);	
+}
+
+
+createShader(type,source)
+{
+	var shader = gl.createShader(type);
+	gl.shaderSource(shader,source);
+	gl.compileShader(shader);
+	var success = gl.getShaderParameter(shader,gl.COMPILE_STATUS);
+	if(success)
+	{
+		return shader;
+	}
+	console.error(gl.getShaderInfoLog(shader));
+	gl.deleteShader(shader);
+}
+	
+createProgram(vs,fs)
+{
+	var program = gl.createProgram();
+	gl.attachShader(program,vs);
+	gl.attachShader(program,fs);
+	gl.linkProgram(program);
+	var succsess = gl.getProgramParameter(program,gl.LINK_STATUS);
+	if(succsess)
+	{
+		return program;
+	}
+	console.error(gl.getProgramInfoLog(program));
+	gl.deleteProgram(program);
+}
+}
+
+class Transform
+		{
+constructor()
+{
+	this.forward = [0,0,1];
+	this.right = [1,0,0];
+	this.up = [0,1,0];
+}
+		
+doRotations(RotAngles)
+{
+	this.xRot = 
+	[
+		[1,0,0,0],
+		[0,Math.cos(RotAngles[0]),-1*Math.sin(RotAngles[0]),0],
+		[0,Math.sin(RotAngles[0]),Math.cos(RotAngles[0]),0],
+		[0,0,0,1]
+	];		
+	this.yRot =
+	[
+		[Math.cos(RotAngles[1]),0,Math.sin(RotAngles[1]),0],
+		[0,1,0,0],
+		[-1*Math.sin(RotAngles[1]),0,Math.cos(RotAngles[1]),0],
+		[0,0,0,1]	
+	];
+	this.zRot = 
+	[
+		[Math.cos(RotAngles[2]),-1*Math.sin(RotAngles[2]),0,0],
+		[Math.sin(RotAngles[2]),Math.cos(RotAngles[2]),0,0],
+		[0,0,1,0],
+		[0,0,0,1]
+	]
+
+	//this.forward = this.crossMultiply(xRot,[0,0,1,0]);		
+	this.forward = 	this.crossMultiply(this.zRot,
+					this.crossMultiply(this.yRot,
+					this.crossMultiply(this.xRot,[0,0,1,0])))
+					
+	this.right = 	this.crossMultiply(this.zRot,
+					this.crossMultiply(this.yRot,
+					this.crossMultiply(this.xRot,[1,0,0,0])))
+					
+	this.up = 		this.crossMultiply(this.zRot,
+					this.crossMultiply(this.yRot,
+					this.crossMultiply(this.xRot,[0,1,0,0])))
+}			
+crossMultiply(M,V)
+{
+//console.log(M[0][3]);
+//console.log(V[3]);
+var temp = [
+			M[0][0]*V[0]+M[0][1]*V[1]+M[0][2] * V[2]+ M[0][3]*V[3],
+			M[1][0]*V[0]+M[1][1]*V[1]+M[1][2] * V[2]+ M[1][3]*V[3],
+			M[2][0]*V[0]+M[2][1]*V[1]+M[2][2] * V[2]+ M[2][3]*V[3],
+			M[3][0]*V[0]+M[3][1]*V[1]+M[3][2] * V[2]+ M[3][3]*V[3]
+			]
+//console.log(temp);
+	return temp;
+}
+			
+		}
+		
+class GameObject
+{
+constructor() 
+{
+	this.loc = [0,0,0];
+	this.rot = [0,0,0];
+	this.isTrigger = false;
+	this.collissionRadius = 1.0;
+	this.velocity = [0,0,0];
+	this.angVelocity = [0,0,0];
+	this.name = "default";
+	this.id = 0;
+	this.prefab;
+	this.transform = new Transform();
+}
+	
+move()
+{
+	var tempP = [0,0,0]
+	for(var i =0; i< 3;i ++)
+	{
+		tempP[i] = this.loc[i];
+		tempP[i] += this.velocity[i];
+		this.rot[i] += this.angVelocity[i];
+	}
+	if(!this.isTrigger)
+	{
+		var clear = true;
+		for(var so in _main.solid)
+		{
+			if(_main.solid[so] != this)
+			{
+			if(this.isSpotLight){
+		clear=true;
+		}
+				else if(_main.checkCollision(tempP,this.collissionRadius,_main.solid[so].loc,_main.solid[so].collissionRadius))
+				{
+					this.onCollision(_main.solid[so])
+					clear = false;
+				}
+			}
+		} 
+		if(clear)
+		{
+		//console.log("Should be moving "+tempP)
+		this.loc = tempP;
+		}
+	}
+	else
+	{
+		this.loc = tempP;
+	}
+	for(var tr in _main.trigger)
+	{
+	if(this.isSpotLight){
+		clear=true;
+		}
+		if(_main.trigger[tr] != this){
+		if(_main.trigger[tr].isPlayer)
+		{
+		if(_main.checkCollision(tempP,this.collissionRadius,_main.trigger[tr].loc,_main.trigger[tr].collissionRadius))
+			{
+				this.onTrigger(_main.trigger[tr])
+			}
+		}
+	}
+	}
+}	
+
+onCollision(other)
+{
+	//overwrite this to insert code to handle on collision
+}
+
+onTrigger(other)
+{
+	//overwrite this to insert code to handle trigger collisions.
+}
+update()
+{
+	console.error(this.name +" update() is NOT IMPLEMENTED!");
+}
+render(program)
+{
+	console.error(this.name + " render() is NOT IMPLEMENTED!");
+}	
+}
+class Ground extends GameObject
+{
+	constructor()
+	{
+		super();
+		this.buffer=gl.createBuffer();
+		this.colorBuffer = gl.createBuffer();
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		this.vertices =
+		[
+			-1000,0,-1000,0,1,0,
+			1000,0, -1000,0,1,0,
+			-1000,0,1000,0,1,0,
+			1000, 0,1000,0,1,0
+			
+		];
+	
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+		this.loc=[0,0,0];
+		this.rot=[0,0,0];
+	}
+	update()
+	{
+		//Do Nothing
+	}
+	render(program)
+	{
+		//Position
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+	var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+	var size = 3;          
+	var type = gl.FLOAT;   
+	var normalize = false; 
+	var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	var offset = 0;        // start at the beginning of the buffer
+	gl.enableVertexAttribArray(positionAttributeLocation);
+	gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+
+	//Color
+	var colorAttributeLocation = gl.getAttribLocation(program,"a_color");
+	size = 3;
+	type = gl.FLOAT;
+	normalize = false;
+	stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	offset = 3*Float32Array.BYTES_PER_ELEMENT;	
+	gl.enableVertexAttribArray(colorAttributeLocation);
+	gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+			
+	var tranLoc  = gl.getUniformLocation(program,'transform');
+	gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+	var thetaLoc = gl.getUniformLocation(program,'rotation');
+	gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+
+	var primitiveType = gl.TRIANGLES;
+	offset = 0;
+	var count = 4;
+	gl.drawArrays(primitiveType, offset, count);
+	}
+}
+class Hex extends GameObject
+{
+	constructor()
+	{
+		super();
+		this.angVelocity = [0,0,0];
+		this.collissionRadius=.7;
+		this.isTrigger = false;
+		this.buffer=gl.createBuffer();
+		this.colorBuffer = gl.createBuffer();
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		this.vertices =
+		[
+			-.25,-.5,-.125,.54,.27,.07,
+			-.25, .5,-.125,.54,.27,.07,
+			-.125,-.5,-.25,.54,.27,.07,
+			-.125, .5,-.25,.54,.27,.07,
+			.125,-.5,-.25,.54,.27,.07,
+			.125,.5,-.25,.54,.27,.07,
+			.25,-.5,-.125,.54,.27,.07,
+			.25, .5,-.125,.54,.27,.07,
+			.25,-.5,.125,.54,.27,.07,
+			.25, .5,.125,.54,.27,.07,
+			.125,-.5,.25,.54,.27,.07,
+			.125, .5,.25,.54,.27,.07,
+			-.125,-.5,.25,.54,.27,.07,
+			-.125, .5,.25,.54,.27,.07,
+			-.25,-.5,.125,.54,.27,.07,
+			-.25, .5,.125,.54,.27,.07,
+			-.25, -.5,-.125,.54,.27,.07,
+			-.25, .5,-.125,.54,.27,.07,
+			
+			-.5,.5,-.25,0,1,0,
+			-.5, 1,-.25,0,1,0,
+			-.25,.5,-.5,0,1,0,
+			-.25, 1,-.5,0,1,0,
+			.25,.5,-.5,0,1,0,
+			.25,1,-.5,0,1,0,
+			.5,.5,-.25,0,1,0,
+			.5, 1,-.25,0,1,0,
+			.5,.5,.25,0,1,0,
+			.5, 1,.25,0,1,0,
+			.25,.5,.5,0,1,0,
+			.25, 1,.5,0,1,0,
+			-.25,.5,.5,0,1,0,
+			-.25, 1,.5,0,1,0,
+			-.5,.5,.25,0,1,0,
+			-.5, 1,.25,0,1,0,
+			-.5, .5,-.25,.0,1,0,
+			-.5, 1,-.25,.0,1,0
+		];
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+		this.loc=[0,0,0.0];
+		this.rot=[0,0,0];
+	}
+	update()
+	{
+		this.move();
+	}
+	render(program)
+	{
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+	var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+	var size = 3;          
+	var type = gl.FLOAT;   
+	var normalize = false; 
+	var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	var offset = 0;        // start at the beginning of the buffer
+	gl.enableVertexAttribArray(positionAttributeLocation);
+	gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+
+	//Color
+	var colorAttributeLocation = gl.getAttribLocation(program,"a_color");
+	size = 3;
+	type = gl.FLOAT;
+	normalize = false;
+	stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	offset = 3*Float32Array.BYTES_PER_ELEMENT;	
+	gl.enableVertexAttribArray(colorAttributeLocation);
+	gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+			
+	var tranLoc  = gl.getUniformLocation(program,'transform');
+	gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+	var thetaLoc = gl.getUniformLocation(program,'rotation');
+	gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+
+	var primitiveType = gl.TRIANGLE_STRIP;
+	offset = 0;
+	var count = 36;
+	gl.drawArrays(primitiveType, offset, count);
+	}
+}
+//Added for moving the camera!
+class Camera extends GameObject
+{
+constructor()
+{
+		super();
+		this.isPlayer=true;
+		this.collissionRadius=-0.01;
+		
+}
+update()
+{
+	//Inverse rotation here!
+	if(_main.checkKey("Q"))
+	{
+		this.rot[1] -=.05;
+	}
+	if(_main.checkKey("E"))
+	{
+		this.rot[1] +=.05;
+	}
+	this.velocity = [0,0,0];
+	if(_main.checkKey("W"))
+	{
+		
+		this.transform.doRotations(this.rot)
+		for(let i =0; i <3; i ++)
+		{
+			this.velocity[i] = this.transform.forward[i]*.1
+		}
+	}
+	if(_main.checkKey("S"))
+	{
+		this.transform.doRotations(this.rot)
+		for(let i =0; i <3; i ++)
+		{
+			this.velocity[i] = this.transform.forward[i]*-.1
+		}
+	}
+	if(_main.checkKey("A"))
+	{
+		this.transform.doRotations(this.rot)
+		for(let i =0; i <3; i ++)
+		{
+			this.velocity[i] = this.transform.right[i]*-.1
+		}
+	}
+	if(_main.checkKey("D"))
+	{
+		this.transform.doRotations(this.rot)
+		for(let i =0; i <3; i ++)
+		{
+			this.velocity[i] = this.transform.right[i]*+.1
+		}
+	}
+	this.move()
+}
+render(program)
+{
+			var camLoc  = gl.getUniformLocation(program,'worldLoc');
+			gl.uniform3fv(camLoc,new Float32Array(this.loc));
+			var worldLoc = gl.getUniformLocation(program,'worldRotation');
+			gl.uniform3fv(worldLoc,new Float32Array(this.rot));
+}
+onTrigger(other){
+if(this.isPlayer && other.isSpotLight){
+this.loc=[-6,0,-14];
+}
+}	
+}
+class SpotLight extends GameObject
+{
+constructor()
+{
+super();
+this.isSpotLight=true;
+this.collissionRadius=1.1;
+}
+update()
+{
+if(this.loc[2]>=12){
+this.loc[2]-=24;
+}
+this.velocity=[0,0,0];
+console.log(this.loc[2]);
+this.transform.doRotations(this.rot)
+for(let i =0; i <3; i ++)
+{			
+			this.velocity[i] = this.transform.forward[i]*0.05;
+}
+this.move();
+}
+render(program)
+{
+var spotLoc  = gl.getUniformLocation(program,'spotLightPosition');
+gl.uniform3fv(spotLoc,new Float32Array(this.loc));
+}
+onTrigger(other){
+if(this.isSpotLight && other.isPlayer){
+other.loc=[-6,0,-14];
+}
+}
+}
+class Rock extends GameObject
+ {
+ constructor()
+ {
+	super()
+	 this.buffer=gl.createBuffer();
+	 gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+	 //Now we want to add color to our vertices information.
+	 this.vertices =
+	 [	
+	  -.5,-.5,0,0,0,0,
+		 .5,-.5,0,.5,0,0,
+		 0,.5,.5,.5,0,0,
+		 
+		  -.5,-.5,0,0,0,0,
+		 0,-.5,1,.5,0,0,
+		 0,.5,.5,.5,0,0,
+		 
+		 .5,-.5,.5,0,0,0,
+		 0,-.5,1,.5,0,0,
+		 0,.5,.5,.5,0,0,
+		 
+		 .5,-.5,.5,0,0,0,
+		 .5,-.5,0,1,0,0,
+		 0,.5,.5,1,0,0,
+		
+		 -.5,-.5,0,0,0,0,
+		 .5,-.5,0,1,0,0,
+		 0,-1,.5,1,0,0,
+		 
+		  -.5,-.5,0,0,0,0,
+		 0,-.5,1,1,0,0,
+		 0,-1,.5,1,0,0,
+		 
+		 .5,-.5,.5,0,0,0,
+		 0,-.5,1,1,0,0,
+		 0,-1,.5,1,0,0,
+		 
+		 .5,-.5,.5,0,0,0,
+		 .5,-.5,0,1,0,0,
+		 0,-1,.5,1,0,0
+	 
+
+	];
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+	this.loc = [0.0,0.0,0.0];
+	this.rot = [0.0,0.2,0.0];
+	this.scale = [.3,.3,.3];
+ }
+ update()
+ {
+	this.move()
+ }
+	 
+render(program)
+{	
+	//Position
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+	var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+	var size = 3;          
+	var type = gl.FLOAT;   
+	var normalize = false; 
+	var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	var offset = 0;        // start at the beginning of the buffer
+	gl.enableVertexAttribArray(positionAttributeLocation);
+	gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+
+	//Color
+	var colorAttributeLocation = gl.getAttribLocation(program,"a_color");
+	size = 3;
+	type = gl.FLOAT;
+	normalize = false;
+	stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+	offset = 3*Float32Array.BYTES_PER_ELEMENT;	
+	gl.enableVertexAttribArray(colorAttributeLocation);
+	gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+			
+	var tranLoc  = gl.getUniformLocation(program,'transform');
+	gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+	var thetaLoc = gl.getUniformLocation(program,'rotation');
+	gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+	var scaleLoc = gl.getUniformLocation(program,'u_scale');
+	gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+
+
+	var primitiveType = gl.TRIANGLES;
+	offset = 0;
+	var count = 36;
+	gl.drawArrays(primitiveType, offset, count);
+}
+ }
+
+
+class Main
+{
+constructor()
+{
+	this.webGL = new InitWebGLProgram();
+	var vertexShaderSource = document.getElementById("2dVertexShader").text;
+	var fragmentShaderSource = document.getElementById("2dFragmentShader").text;
+	var vertexShader = this.webGL.createShader(gl.VERTEX_SHADER, vertexShaderSource);
+	var fragmentShader = this.webGL.createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+	this.program = this.webGL.createProgram(vertexShader,fragmentShader);
+	gl.useProgram(this.program);
+	requestAnimationFrame(Main.mainLoop)//Static call
+	
+	//Added these for Game Engine
+	this.ObjectCounter = 0;
+	this.visual = [];
+	this.solid = [];
+	this.trigger = [];
+	this.keys =[];	
+	
+	
+	//Added for Camera move!
+	var camLoc  = gl.getUniformLocation(this.program,'worldLoc');
+	gl.uniform3fv(camLoc,new Float32Array([0,0,0]));
+	var worldLoc = gl.getUniformLocation(this.program,'worldRotation');
+	gl.uniform3fv(worldLoc,new Float32Array([0,0,0]));
+	var spotLoc = gl.getUniformLocation(this.program,'spotLightPosition');
+	gl.uniform3fv(spotLoc,new Float32Array([0,0,0]));
+
+	var tempLoc = gl.getUniformLocation(this.program,'n');
+	gl.uniform1f(tempLoc,.1);
+	tempLoc = gl.getUniformLocation(this.program,'f');
+	gl.uniform1f(tempLoc,500);
+	tempLoc = gl.getUniformLocation(this.program,'r');
+	gl.uniform1f(tempLoc,.1);
+	tempLoc = gl.getUniformLocation(this.program,'t');
+	gl.uniform1f(tempLoc,.1);
+}
+
+updateAll()
+{
+	for(var i in this.visual)
+	{
+		this.visual[i].update();
+	}
+	for(var i in this.solid)
+	{
+		this.solid[i].update();
+	}
+	for(var i in this.trigger)
+	{
+		this.trigger[i].update();
+	}
+}
+renderAll()
+{
+	gl.clear(gl.COLOR_BUFFER_BIT);
+	for(var i in this.visual)
+	{
+		this.visual[i].render(this.program);
+	}
+	for(var i in this.solid)
+	{
+		this.solid[i].render(this.program);
+	}
+	for(var i in this.trigger)
+	{
+		this.trigger[i].render(this.program);
+	}
+	
+}
+
+canvasHandle(event)
+{
+	var rect = canvas.getBoundingClientRect();
+	var realX = event.clientX - rect.left;
+	var realY = event.clientY - rect.top;
+	var x = -1 + 2*realX/myCanvas.width;
+	var y = -1 + 2*(myCanvas.height - realY)/myCanvas.height;
+	//console.log("The mouse was clicked at "+x+","+y)
+	var color = new Uint8Array(4*gl.drawingBufferWidth*gl.drawingBufferHeight);
+	//console.log("Picking at"+ realX+","+Math.round(myCanvas.height-realY));
+	gl.readPixels(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight,gl.RGBA,gl.UNSIGNED_BYTE,color)
+	for(var i in color)
+	{
+		if(color[i]>0)
+		{
+			//console.log(color)
+			break
+		}
+	}
+}
+mouseMoveHandle(event)
+{
+	var rect = canvas.getBoundingClientRect()
+	var realX = event.clientX - rect.left
+	var realY = event.clientY - rect.top
+	var x = -1 + 2*realX/myCanvas.width
+	var y = -1 + 2*(myCanvas.height - realY)/myCanvas.height
+	//console.log("The mouse moved to "+x+","+y)
+}
+
+keyDown(event)
+{
+	this.keys[String.fromCharCode(event.keyCode)] = true;
+	//console.log(String.fromCharCode(event.keyCode) +" should be true - "+this.keys[String.fromCharCode(event.keyCode)]);
+}
+
+keyUp(event)
+{
+	this.keys[String.fromCharCode(event.keyCode)] = false;
+	//console.log(String.fromCharCode(event.keyCode) +" should be false - "+this.keys[String.fromCharCode(event.keyCode)]);
+}
+
+static mouseH(event)
+{
+	_main.canvasHandle(event)
+}
+static mouseM(event)
+{
+	_main.mouseMoveHandle(event)
+}		
+static keyD(event)
+{
+	_main.keyDown(event)
+}
+static keyU(event)
+{
+	_main.keyUp(event)
+}
+			
+static mainLoop()
+{
+	_main.updateAll()
+	_main.renderAll()
+	requestAnimationFrame(Main.mainLoop)
+}
+			
+//Added For Game Engine
+checkCollision(loc1,rad1,loc2, rad2)
+{
+	var distx=Math.abs(loc2[0]-loc1[0]);
+				var disty=Math.abs(loc2[1]-loc1[1]);
+				var distz=Math.abs(loc2[2]+loc1[2]);
+				var totalrad=rad1+rad2;
+				if(distx<totalrad&&disty<totalrad&&distz<totalrad){
+				return true;
+				}
+				else{
+				return false;
+			}
+}
+
+createObject(type, prefab, loc, rot)
+{
+	//type 0 = visual
+	//type 1 = solid
+	//type 2 = trigger
+	var temp = new prefab; //Yes this dark sorcery will work.
+	var id = "ID"+this.ObjectCounter;
+	this.ObjectCounter ++;
+	temp.id = id;
+	temp.prefab = prefab;
+	console.log(id);
+	for(let i =0; i < 3; i ++)
+	{
+		temp.loc[i] = loc[i];
+		temp.rot[i] = rot[i];
+	}
+		switch(type)
+		{
+			case 0:
+				this.visual[id] = temp;
+			break;
+			case 1:
+				this.solid[id] = temp;
+			break;
+			case 2:
+				this.trigger[id] = temp;
+			break;
+			default:
+			break;
+		}		
+	return temp;
+}
+
+destroyObject(id)
+{
+	if(id in this.visual)
+	{
+		delete this.visual[id];
+		return true
+	}
+	if(id in this.solid)
+	{
+		delete this.solid[id];
+		return true
+	}
+
+	if(id in this.trigger)
+	{
+		delete this.trigger[id];
+		return true
+	}
+	return false
+}
+
+checkKey(key)
+{
+	if( (key in this.keys)&& this.keys[key])
+	{
+		return true
+	}
+	else
+	{
+		return false
+	}
+}
+
+}
+			
+
+</SCRIPT>
+		
+	</HEAD>
+	
+	<BODY>
+		<HEADER>
+			<H1>Spooky Forest</H1>
+		</HEADER>
+		<p>Reach the end of the trees, spotlight resets your position</p>
+		<p>WASD to move, Q and E to rotate your camera</p>
+		<CANVAS id="myCanvas" width="640" height="640">
+			Your browser does not support canvas.
+		</CANVAS>
+		
+
+<SCRIPT>
+var canvas = document.getElementById("myCanvas");
+var gl = canvas.getContext("webgl2");
+_main = new Main()
+canvas.addEventListener("click",Main.mouseH);
+canvas.addEventListener("mousemove",Main.mouseM);
+window.onkeydown = Main.keyD;
+window.onkeyup = Main.keyU;
+_main.createObject(0,Ground,[50,-0.5,50],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,0],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,-3],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,-6],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,-9],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,-12],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,0],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,-3],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,-6],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,-9],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,-12],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,0],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,-3],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,-6],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,-9],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,-12],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,3],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,6],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,9],[0,0,0]);
+_main.createObject(1,Hex,[-3,0,12],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,3],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,6],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,9],[0,0,0]);
+_main.createObject(1,Hex,[-6,0,12],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,3],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,6],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,9],[0,0,0]);
+_main.createObject(1,Hex,[-9,0,12],[0,0,0]);
+_main.createObject(1,Rock,[-4.5,.20,-3],[0,0,0]);
+_main.createObject(1,Rock,[-7.5,.20,-6],[0,0,0]);
+_main.createObject(1,Rock,[-4.5,.20,-9],[0,0,0]);
+_main.createObject(1,Rock,[-4.5,.20,3],[0,0,0]);
+_main.createObject(1,Rock,[-7.5,.20,6],[0,0,0]);
+_main.createObject(1,Rock,[-4.5,.20,9],[0,0,0]);
+_main.createObject(2,Camera,[3,0,-3],[0,0,0]);
+_main.createObject(2,SpotLight,[-4.5,0,-12],[0,0,0]);
+_main.createObject(2,Camera,[-6,0,-14],[0,0,0]);
+
+</SCRIPT>
+	</BODY>
+</HTML>
